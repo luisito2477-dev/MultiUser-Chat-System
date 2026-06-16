@@ -56,9 +56,7 @@ app/
 ├── users_service/
 ├── rooms_service/
 ├── messages_service/
-├── websocket_service/
 ├── database/
-├── shared/
 └── main.py
 ```
 
@@ -68,8 +66,6 @@ app/
 src/
 ├── components/
 ├── pages/
-├── services/
-├── hooks/
 └── App.tsx
 ```
 
