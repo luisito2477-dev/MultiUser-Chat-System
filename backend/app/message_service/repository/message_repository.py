@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import select, Select, Result
-from typing import Sequence, Any
+from typing import Sequence, Any, Optional
 
 from app.message_service.models.messages import Message
 from app.message_service.schemas.message_schemas import MessageCreate
@@ -38,9 +38,12 @@ def get_messages_from_room(room_id: str, db: Session, page: int, limit: int) -> 
     offset: int = (page - 1) * limit
     statement: Select = (
         select(Message)
-        .options(joinedload(Message.user)) #  Carga los datos del usuario 
+        .options(
+            joinedload(Message.user), #  Carga los datos del usuario 
+            joinedload(Message.files)
+            ) 
         .where(Message.room_id == room_id)
-        .order_by(Message.created_at.desc()) 
+        .order_by(Message.created_at.asc()) 
         .offset(offset)
         .limit(limit)
     )
@@ -49,7 +52,20 @@ def get_messages_from_room(room_id: str, db: Session, page: int, limit: int) -> 
 
     result: Result[Any] = db.execute(statement)
 
-    return result.scalars().all()
+    return result.scalars().unique().all()
+
+
+
+def get_message_by_id(message_id: str, db: Session) -> Optional[Message]:
+    
+    statement: Select = (
+        select(Message)
+        .where(Message.id == message_id)
+    )
+
+    result: Result[Any] = db.execute(statement)
+
+    return result.scalar_one_or_none()
 
 
 

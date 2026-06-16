@@ -15,6 +15,7 @@ class ConnectionManager:
         """
         Acepta la conexion y une al usuario a una sala especifica
         """
+        print("Estoy en la funcion connect()")
         await websocket.accept()
 
         # Si la sala no existe en el diccionario, la creamos vacia
@@ -24,12 +25,15 @@ class ConnectionManager:
         # anadimos el socket a la lista de esa sala
         self.active_connections[room_id].append(websocket)
 
+        print("Active_connections: ")
+        print(self.active_connections)
+
         
     def disconnect(self, websocket: WebSocket, room_id: str):
         """
         Quita el socket de la sala cuando el cliente se desconecta
         """
-
+        print("Estoy en la funcion connect()")
         if room_id in self.active_connections:
             if websocket in self.active_connections[room_id]:
                 self.active_connections[room_id].remove(websocket)
@@ -37,6 +41,9 @@ class ConnectionManager:
             # Si la sala esta vacia, la borramos para liberar espacio
             if not self.active_connections[room_id]:
                 del self.active_connections[room_id]
+        
+        print("Active_connections: ")
+        print(self.active_connections)
 
 
     async def broadcast_to_room(self, room_id: str, message_data: dict):
@@ -44,6 +51,8 @@ class ConnectionManager:
         Envia un mensaje en JSON a todos los usuarios conectados a una
         sala especifica de forma asincrona (no bloqueante)
         """
+
+        print("Estoy en la funcion broadcast_to_room()")
         if room_id in self.active_connections:
 
             for connection in self.active_connections[room_id]:

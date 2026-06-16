@@ -58,7 +58,7 @@ def signup(user: UserCreate, db: Session = Depends(get_db)):
     # Si ya existe el usuario devolvemos error
     if db_user:
         raise HTTPException(
-            status_code=400,
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail="Username already registered"
         )
 

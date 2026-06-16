@@ -53,3 +53,9 @@ class User(Base):
         back_populates="user", 
         cascade="all, delete-orphan" # Si se borra un usuario, se borran sus mensajes
     )
+
+    rooms: Mapped[List["Room"]] = relationship(
+        "Room", 
+        back_populates="user", 
+        cascade="all, delete-orphan" # Si se borra un usuario, se borran sus mensajes
+    )

@@ -63,3 +63,10 @@ class Message(Base):
         back_populates="messages", 
         lazy="raise"
     )
+
+    files: Mapped[list["FileModel"]] = relationship(
+        "FileModel", 
+        back_populates="message", 
+        uselist=False,
+        lazy="raise"
+    )

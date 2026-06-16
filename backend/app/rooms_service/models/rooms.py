@@ -1,6 +1,6 @@
 import uuid
 from sqlalchemy import String, Integer, Boolean, ForeignKey, DateTime
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from datetime import datetime, timezone
 
 from app.database.connection import Base
@@ -39,6 +39,10 @@ class Room(Base):
         default=lambda: datetime.now(timezone.utc)
     )
 
-
+    user: Mapped[List["User"]] = relationship(
+        "User", 
+        back_populates="rooms", 
+        lazy="raise"
+    )
 
 

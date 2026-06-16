@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.auth_service.routes.auth_routes import router as auth_router
 from app.rooms_service.routes.rooms_routes import router as room_router
 from app.message_service.routes.message_routes import router as message_router
+from app.files_service.routes.file_routes import router as file_router
 from app.database.connection import Base, engine
 
 #Crear tablas automaticamente
@@ -32,6 +33,7 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(room_router)
 app.include_router(message_router)
+app.include_router(file_router)
 
 
 @app.get("/")

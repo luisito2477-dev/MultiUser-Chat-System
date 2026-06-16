@@ -20,8 +20,9 @@ from app.rooms_service.repository.rooms_repository import (
     leave_a_room_by_object
 )
 from app.message_service.repository.message_repository import get_messages_from_room, create_new_message
-from app.message_service.schemas.message_schemas import MessageResponse, MessageCreate
-from app.message_service.models.messages import MessageType
+from app.message_service.schemas.message_schemas import MessageResponse, MessageCreate, FileNestedResponse
+from app.message_service.models.messages import MessageType, Message
+from app.message_service.managers.websocket_manager import manager
 router: APIRouter = APIRouter(
     prefix="/rooms", 
     tags=["rooms"],
@@ -116,7 +117,7 @@ def create_room(
 
 
 @router.post("/{room_id}/join", response_model=JoinRoomResponse)
-def join_room(
+async def join_room(
     room_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -146,7 +147,24 @@ def join_room(
         message_type=MessageType.SYSTEM,
         content=f"{current_user.username} has joined the room {room.name}"
     )
-    create_new_message(current_user, message_data, db)
+    new_message: Message = create_new_message(current_user, message_data, db)
+
+    # Notificar a todos por Websocket
+    websocket_payload: dict = {
+        "id": new_message.id,
+        "room_id": new_message.room_id,
+        "user_id": new_message.user_id,
+        "message_type": new_message.message_type.value if hasattr(new_message.message_type, 'value') else str(new_message.message_type),
+        "content": new_message.content,
+        "created_at": new_message.created_at.isoformat(),
+        "username": current_user.username
+    }
+
+    # Disparando el broadcast asincrono
+    await manager.broadcast_to_room(
+        room_id=new_message.room_id,
+        message_data=websocket_payload
+    )
 
     return JoinRoomResponse(
         status="Success",
@@ -157,7 +175,7 @@ def join_room(
 
 
 @router.delete("/{room_id}/leave", response_model=LeaveRoomResponse)
-def leave_room(
+async def leave_room(
     room_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -190,7 +208,25 @@ def leave_room(
         message_type=MessageType.SYSTEM,
         content=f"{current_user.username} has left the room {room.name}"
     )
-    create_new_message(current_user, message_data, db)
+
+    new_message: Message = create_new_message(current_user, message_data, db)
+
+    # Notificar a todos por Websocket
+    websocket_payload: dict = {
+        "id": new_message.id,
+        "room_id": new_message.room_id,
+        "user_id": new_message.user_id,
+        "message_type": new_message.message_type.value if hasattr(new_message.message_type, 'value') else str(new_message.message_type),
+        "content": new_message.content,
+        "created_at": new_message.created_at.isoformat(),
+        "username": current_user.username
+    }
+
+    # Disparando el broadcast asincrono
+    await manager.broadcast_to_room(
+        room_id=new_message.room_id,
+        message_data=websocket_payload
+    )
 
     return LeaveRoomResponse(
         status="Success",
@@ -204,7 +240,7 @@ def get_room_messages(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
     page: int = Query(default=1, ge=1),
-    limit: int = Query(default=20, ge=1, le=20)
+    limit: int = Query(default=50, ge=1, le=50)
 ):
     """
     Endpoint para obtener los mensajes de una sala
@@ -236,7 +272,14 @@ def get_room_messages(
             message_type=msg.message_type,
             content=msg.content,
             created_at=msg.created_at,
-            username=msg.user.username 
+            username=msg.user.username,
+
+            file_info=FileNestedResponse(
+            id=msg.files.id,
+            filename=msg.files.filename,
+            content_type=msg.files.file_mime_type,
+            file_size=msg.files.filesize
+        ) if msg.files else None 
         )
         for msg in db_messages
     ]

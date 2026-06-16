@@ -10,7 +10,7 @@ load_dotenv()
 
 SECRET_KEY: Final[str] = os.getenv("SECRET_KEY_AUTH")
 ALGORITHM: Final[str] = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES: Final[int] = 30
+ACCESS_TOKEN_EXPIRE_MINUTES: Final[int] = 120
 
 # Objeto que administra algoritmos
 pwd_context: CryptContext = CryptContext(

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
 from typing import Optional
 
@@ -17,11 +17,10 @@ from app.database.connection import get_db
 router: APIRouter = APIRouter(
     prefix="/messages", 
     tags=["messages"],
-    dependencies=[Depends(get_current_user)]
 )
 
 @router.post("/", response_model=CreateMessageResponse)
-def create_message(
+async def create_message(
     message_data: MessageCreate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -55,14 +54,17 @@ def create_message(
         "id": new_message.id,
         "room_id": new_message.room_id,
         "user_id": new_message.user_id,
-        "message_type": new_message.message_type,
+        "message_type": new_message.message_type.value if hasattr(new_message.message_type, 'value') else str(new_message.message_type),
         "content": new_message.content,
         "created_at": new_message.created_at.isoformat(),
         "username": current_user.username
     }
 
     # Disparando el broadcast asincrono
-    await manager.
+    await manager.broadcast_to_room(
+        room_id=new_message.room_id,
+        message_data=websocket_payload
+    )
 
     return CreateMessageResponse(
         status="Success",
@@ -71,7 +73,26 @@ def create_message(
     )
 
 
-    
+@router.websocket("/ws/{room_id}")
+async def websocket_endpoint(websocket: WebSocket, room_id: str):
+    """
+    Endpoint central no bloqueante para mantener la conexion con el frontend
+    """ 
+
+    # aceptar la conexion y meter al cliente al ConnectionManager
+    await manager.connect(websocket, room_id)
+
+    try:
+        while True:
+            data = await websocket.receive_text()
+
+    except WebSocketDisconnect:
+        # Si el usuario cierra la pestana, la libreria lanza esta exception
+        # y la sacamos del manager
+        manager.disconnect(websocket, room_id)
+
+
+
 
 
 @router.delete("/{message_id}")
@@ -79,3 +100,4 @@ def delete_message():
     """
     Endpoint para eliminar un mensaje del usuario
     """
+    pass

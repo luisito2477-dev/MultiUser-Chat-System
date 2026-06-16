@@ -5,6 +5,15 @@ from typing import Optional
 from app.message_service.models.messages import MessageType
 
 
+class FileNestedResponse(BaseModel):
+    id: str
+    filename: str
+    content_type: str
+    file_size: int
+
+    class Config:
+        from_attributes = True
+
 class MessageCreate(BaseModel):
 
     room_id: str
@@ -29,6 +38,9 @@ class MessageResponse(BaseModel):
     message_type: MessageType
     content: str
     created_at: datetime
+
+
+    file_info: Optional[FileNestedResponse] = None
 
     
 
