@@ -39,10 +39,21 @@ class Room(Base):
         default=lambda: datetime.now(timezone.utc)
     )
 
-    user: Mapped[List["User"]] = relationship(
+    # Relacion a el dueno de la sala
+    owner: Mapped["User"] = relationship(
         "User", 
-        back_populates="rooms", 
-        lazy="raise"
+        foreign_keys=[owner_id],
+        lazy="raise" # Evita N+1 inesperados
     )
+
+    # Relacion a los miembros de la sala
+    members: Mapped[List["User"]] = relationship(
+        "User",
+        secondary="room_members",
+        back_populates="joined_rooms",
+        lazy="raise" # Levantara error si no se pide explícitamente en el query (buena práctica)
+    )
+
+
 
 

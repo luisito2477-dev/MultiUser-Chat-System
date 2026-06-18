@@ -1,0 +1,73 @@
+========================================================================
+                     GUÍA DE INSTALACIÓN Y EJECUCIÓN
+========================================================================
+¡Hola! Este es el manual para levantar el proyecto localmente. 
+El proyecto está dividido en dos partes: 
+- Backend (FastAPI)
+- Frontend (React + Tailwind CSS)
+
+Sigue estos pasos en orden para que todo funcione a la primera.
+
+------------------------------------------------------------------------
+REQUISITOS PREVIOS
+------------------------------------------------------------------------
+Asegúrate de tener instalado en tu computadora:
+1. Python (Versión 3.9 o superior)
+2. Node.js (Versión 18 o superior) y npm (viene con Node)
+3. Git
+
+========================================================================
+PASO 1: CONFIGURACIÓN DEL BACKEND (FastAPI)
+========================================================================
+
+1. Abre una terminal y muévete a la carpeta del backend:
+   cd backend
+
+2. Crea un entorno virtual de Python para no mezclar librerías:
+   • En Windows:
+     python -m venv venv
+   • En Mac/Linux:
+     python3 -m venv venv
+
+3. Activa el entorno virtual:
+   • En Windows (PowerShell):
+     .\venv\Scripts\Activate.ps1
+   • En Windows (CMD):
+     .\venv\Scripts\activate.bat
+   • En Mac/Linux:
+     source venv/bin/activate
+
+   (Sabrás que se activó porque verás un "(venv)" al inicio de la línea).
+
+4. Actualiza pip e instala las librerías del proyecto:
+   pip install --upgrade pip
+   pip install -r requirements.txt
+
+5. Arranca el servidor de desarrollo de FastAPI:
+   uvicorn main:app --reload
+
+   Nota: Si tu archivo principal no se llama "main.py", cambia el "main"
+   del comando por el nombre de tu archivo (ej. uvicorn app:app --reload).
+   El backend debería estar corriendo en: http://127.0.0.1:8000
+
+========================================================================
+PASO 2: CONFIGURACIÓN DEL FRONTEND (React + Tailwind)
+========================================================================
+
+1. Abre OTRA terminal (deja la del backend corriendo) y ve al frontend:
+   cd frontend
+
+2. Instala todas las dependencias necesarias (React, Tailwind, etc.):
+   npm install
+
+   (Esto leerá el archivo package.json automáticamente y creará la
+   carpeta node_modules con todo lo necesario).
+
+3. Arranca el servidor de desarrollo de React:
+   npm run dev
+   • O si usaste Create React App clásico:
+   npm start
+
+   El frontend debería abrirse en: http://localhost:5173 (o http://localhost:3000)
+
+==================================================================

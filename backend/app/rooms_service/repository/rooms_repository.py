@@ -1,6 +1,7 @@
-from sqlalchemy.orm import Session
-from sqlalchemy import select, Select, Result, delete
-from typing import Any, Optional, Sequence
+from sqlalchemy.orm import Session, aliased, joinedload, selectinload
+from sqlalchemy.orm._orm_constructors import AliasedType
+from sqlalchemy import select, case, Select, Result, delete, func, exists
+from typing import Any, Optional, Sequence, Dict, List
 
 from app.database.connection import get_db
 from app.rooms_service.models.rooms import Room
@@ -9,16 +10,47 @@ from app.rooms_service.schemas.rooms_schemas import RoomCreate
 from app.auth_service.models.users import User
 
 
-def get_all_rooms(db: Session, page: int, limit: int) -> Sequence[Room]:
+def get_all_rooms(current_user: User, db: Session, page: int, limit: int) -> List[Dict[str, Any]]:
     """
-    Obtiene todas las salas que hay en el sistema
+    Obtiene todas las salas que hay en el sistema con metadatos extendidos:
+    Username del owner, Lista de Miembros y Conteo Total
     """
 
     # Paginacion
     offset: int = (page - 1) * limit
 
+    
+    # Subquery para contar miembros
+    member_count_subquery: Select = (
+        select(
+            RoomMember.room_id,
+            func.count(RoomMember.user_id).label("total_members")
+        )
+        .group_by(RoomMember.room_id)
+        .subquery()
+    )
+
+    # Verifica si el usuario actual es miembro de LA sala evaluada
+    is_member_condition = exists().where(
+        RoomMember.room_id == Room.id,
+        RoomMember.user_id == current_user.id
+    )
+
+    # Construccion del query principal
     statement: Select = (
-        select(Room)
+        select(
+            Room,
+            # Si no hay miembros guardados, coalesce forza 0 en vez de null
+            func.coalesce(member_count_subquery.c.total_members, 0).label("current_users_count"),
+            # Aplicando la condicional para verificar que es miembro
+            case(
+                (is_member_condition, True),
+                else_=False
+            ).label("is_member")
+        )
+        # Traemos al dueno
+        .options(joinedload(Room.owner))
+        .outerjoin(member_count_subquery, Room.id == member_count_subquery.c.room_id)
         .order_by(Room.created_at.desc())
         .offset(offset)
         .limit(limit)
@@ -26,21 +58,69 @@ def get_all_rooms(db: Session, page: int, limit: int) -> Sequence[Room]:
 
     result: Result[Any] = db.execute(statement)
 
-    # scalars().all() devuelve una Sequence de objetos Room
-    return result.scalars().all()
+    extended_rooms = []
+
+    for row in result.all():
+        room_obj: Room = row.Room
+        current_users_count: int = row.current_users_count
+        is_member: bool = row.is_member
+
+        # obtener los datos de los miembros
+        members_statement: Select = (
+            select(User)
+            .join(RoomMember, RoomMember.user_id == User.id)
+            .where(RoomMember.room_id == room_obj.id)
+        )
+        all_members: Sequence[User] = db.execute(members_statement).scalars().all()
+
+        # obtener el numero total de salas
+
+        extended_rooms.append({
+            "id": room_obj.id,
+            "name": room_obj.name,
+            "description": room_obj.description,
+            "owner_id": room_obj.owner_id,
+            "owner_username": room_obj.owner.username,
+            "is_member": is_member,
+            "current_users_count": current_users_count, 
+            "members": list(all_members),               
+            "created_at": room_obj.created_at
+        })
+
+    return extended_rooms
     
 
 
-def get_rooms_by_userid(user: User, db: Session, page: int, limit: int) -> Sequence[Room]:
+def get_rooms_by_userid(current_user: User, db: Session, page: int, limit: int) -> List[Dict[str, Any]]:
     """
     Obtiene unicamente las salas que pertenece el usuario actual
     """
+    # Paginacion
     offset: int = (page - 1) * limit
 
+    
+    # Subquery para contar miembros
+    member_count_subquery: Select = (
+        select(
+            RoomMember.room_id,
+            func.count(RoomMember.user_id).label("total_members")
+        )
+        .group_by(RoomMember.room_id)
+        .subquery()
+    )
+
+    # Construccion del query principal
     statement: Select = (
-        select(Room)
+        select(
+            Room,
+            # Si no hay miembros guardados, coalesce forza 0 en vez de null
+            func.coalesce(member_count_subquery.c.total_members, 0).label("current_users_count"),
+        )
+        # Traemos al dueno
+        .options(joinedload(Room.owner))
         .join(RoomMember, Room.id == RoomMember.room_id)
-        .where(RoomMember.user_id == user.id)
+        .outerjoin(member_count_subquery, Room.id == member_count_subquery.c.room_id)
+        .where(RoomMember.user_id == current_user.id)
         .order_by(Room.created_at.desc())
         .offset(offset)
         .limit(limit)
@@ -48,22 +128,113 @@ def get_rooms_by_userid(user: User, db: Session, page: int, limit: int) -> Seque
 
     result: Result[Any] = db.execute(statement)
 
-    return result.scalars().all()
+    extended_rooms = []
+
+    for row in result.all():
+        room_obj: Room = row.Room
+        current_users_count: int = row.current_users_count
+
+        members_statement: Select = (
+            select(User)
+            .join(RoomMember, RoomMember.user_id == User.id)
+            .where(RoomMember.room_id == room_obj.id)
+        )
+        all_members: Sequence[User] = db.execute(members_statement).scalars().all()
+
+        extended_rooms.append({
+            "id": room_obj.id,
+            "name": room_obj.name,
+            "description": room_obj.description,
+            "owner_id": room_obj.owner_id,
+            "owner_username": room_obj.owner.username,
+            "is_member": True,
+            "current_users_count": current_users_count, 
+            "members": list(all_members),               
+            "created_at": room_obj.created_at
+        })
+
+    return extended_rooms
 
 
-def get_room_by_id(db: Session, room_id: str) -> Optional[Room]:
-    """
-    Obtiene una sala por su id
-    """
+def get_room_by_id(db: Session, room_id) -> Optional[Room]:
+
     statement: Select = (
         select(Room)
         .where(Room.id == room_id)
     )
 
     result: Result[Any] = db.execute(statement)
-    
-    # .scalar_one_or_none() extrae el primer registro o regresa None si está vacío
+
     return result.scalar_one_or_none()
+
+
+def get_room_by_id_extended(current_user: User, db: Session, room_id: str) -> Optional[Dict[str, Any]]:
+    """
+    Obtiene una sala por su id
+    """
+    # 1. Subquery para contar miembros de esta sala
+    member_count_subquery = (
+        select(
+            RoomMember.room_id,
+            func.count(RoomMember.user_id).label("total_members")
+        )
+        .where(RoomMember.room_id == room_id) # Filtro rápido por ID de sala
+        .group_by(RoomMember.room_id)
+        .subquery()
+    )
+
+    # 2. Condición para saber si el usuario actual es miembro
+    is_member_condition = exists().where(
+        RoomMember.room_id == Room.id,
+        RoomMember.user_id == current_user.id
+    )
+
+    # 3. Query Maestro para la sala específica
+    statement = (
+        select(
+            Room,
+            func.coalesce(member_count_subquery.c.total_members, 0).label("current_users_count"),
+            case(
+                (is_member_condition, True),
+                else_=False
+            ).label("is_member")
+        )
+        .options(joinedload(Room.owner))        
+        .outerjoin(member_count_subquery, Room.id == member_count_subquery.c.room_id)
+        .where(Room.id == room_id)             
+    )
+
+    result: Result[Any] = db.execute(statement)
+    
+    # .one_or_none() devuelve la fila (Room, count, is_member) o None si el ID no existe
+    row = result.one_or_none()
+    
+    if not row:
+        return None
+
+    room_obj: Room = row.Room
+    current_users_count: int = row.current_users_count
+    is_member: bool = row.is_member
+
+    members_statement: Select = (
+            select(User)
+            .join(RoomMember, RoomMember.user_id == User.id)
+            .where(RoomMember.room_id == room_obj.id)
+        )
+    all_members: Sequence[User] = db.execute(members_statement).scalars().all()
+
+    # Mapeamos al diccionario plano que Pydantic devorará felizmente
+    return {
+        "id": room_obj.id,
+        "name": room_obj.name,
+        "description": room_obj.description,
+        "owner_id": room_obj.owner_id,
+        "owner_username": room_obj.owner.username,
+        "current_users_count": current_users_count,
+        "is_member": is_member,
+        "members": list(all_members),
+        "created_at": room_obj.created_at
+    }
 
 
 def get_members(db: Session, room_id: str, page: int, limit: int) -> Sequence[User]:

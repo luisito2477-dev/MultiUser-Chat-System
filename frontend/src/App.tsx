@@ -41,7 +41,7 @@ function App() {
           {/* VISTAS PRIVADAS DEL CHAT (Se comen toda la pantalla para el multichat responsivo) */}
           <Route element={<ProtectedRoute />}>
             <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/dashboard/rooms/:id/details" element={<RoomDetails />} />
+            <Route path="/dashboard/rooms/:roomId/details" element={<RoomDetails />} />
             <Route path="/dashboard/explore" element={<ExploreRooms />} />
           </Route>
         </Routes>

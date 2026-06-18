@@ -8,11 +8,20 @@ import { MessageArea, type MessagePayload } from '../components/dashboard/Messag
 import { CreateRoomModal } from '../components/dashboard/CreateRoomModal';
 
 // Esquema de RoomResponse del backend
+interface Member {
+    id: string;
+    username: string;
+}
+
 interface Room {
     id: string;
     name: string;
     description: string;
     owner_id: string;
+    owner_username: string;
+    current_users_count: number;
+    is_member: boolean;
+    members: Member[];
     created_at: string;
 }
 
@@ -130,45 +139,18 @@ export const Dashboard: React.FC = () => {
 
 
     /*
-    * OBTENER OWNER USERNAME
+    * OBTENCION DE DATOS DE LA ROOM SELECCIONADA
     */
     useEffect(() => {
-        const fetchOwnerUsername = async () => {
-            if (!currentRoomId || rooms.length === 0) {
-                setActiveRoomData(null);
-                return;
-            }
+        if(!currentRoomId || rooms.length === 0){
+            setActiveRoomData(null);
+            return;
+        }
 
-            const baseRoom = rooms.find(r => r.id === currentRoomId);
-            if (!baseRoom) return;
-
-            const token = localStorage.getItem('token');
-            try {
-                const response = await fetch(`${BACKEND_ROOMS_BASE_URL}/${currentRoomId}/members?page=1&limit=20`, {
-                    method: "GET",
-                    headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" }
-                });
-
-                if (!response.ok) throw new Error("Could not fetch members.");
-                const members = await response.json();
-
-                const owner = members.find((m: any) => m.id === baseRoom.owner_id);
-                
-                setActiveRoomData({
-                    ...baseRoom,
-                    owner_username: owner ? owner.username : "Unknown_Operator"
-                });
-
-            } catch (err) {
-                console.error("Error fetching room owner metadata:", err);
-                setActiveRoomData({
-                    ...baseRoom,
-                    owner_username: "System_Core"
-                });
-            }
-        };
-
-        fetchOwnerUsername();
+        const currentRoom = rooms.find(r => r.id === currentRoomId);
+        if (currentRoom){
+            setActiveRoomData(currentRoom);
+        }
     }, [currentRoomId, rooms]);
 
 
@@ -176,19 +158,23 @@ export const Dashboard: React.FC = () => {
      * TRANSMITIR MENSAJE Y SUBIR ARCHIVO
      */
     const handleSendMessage = async(text: string, file: File | null) => {
+        //Si no hay room seleccionada se cancela operacion
         if(!currentRoomId){
             return;
         }
 
+        //Verificar que aun sigue autenticado
         const token = localStorage.getItem('token');
         if(!token){
             return;
         }
 
         try{
+            //Si el usuario adjunto archivo sin mensaje, se adjunta un mensaje en automatico, si si escribio texto, se conserva lo que se escribio
             const contentText = text.trim() === "" && file ? `Shared a file: ${file.name}` : text;
             console.log("Step 1: Emitting message base metadata to messages_service...");
-
+            
+            //Peticion para guardar el mensaje en la db
             const messageResponse = await fetch(BACKEND_MESSAGES_URL, {
                 method: "POST",
                 headers: {
@@ -202,22 +188,27 @@ export const Dashboard: React.FC = () => {
                 })
             });
 
+            
             if (!messageResponse.ok) {
                 const errData = await messageResponse.json();
                 throw new Error(errData.detail || "Failed to deliver message.");
             }
 
+            //Deserializamos
             const messageData = await messageResponse.json();
             const createdMessageId = messageData.message_id;
             
             console.log(`Step 1 Success. Message assigned ID: ${createdMessageId}`);
             
+            //Si el usuario cargo archivo y tenemos id mensaje, procedemos a cargar el archivo en la db
             if (file && createdMessageId) {
                 console.log("Step 2: File detected. Packing FormData for files_service...");
+                //Instanciamos el FormData, para empaquetar el archivo en binario y el ID de relacion con el mensaje
                 const formData = new FormData();
                 formData.append("file", file);
                 formData.append("message_id", createdMessageId);
-
+                
+                //Peticion para guardar el archivo
                 const fileResponse = await fetch(BACKEND_FILES_UPLOAD_URL, {
                     method: "POST",
                     headers: { "Authorization": `Bearer ${token}` },
@@ -241,14 +232,20 @@ export const Dashboard: React.FC = () => {
      * CICLO DE VIDA DE CONEXION: HISTORIAL & WEBSOCKET EN TIEMPO REAL 
      */
     useEffect(() => {
-        if (!currentRoomId) return;
+        if (!currentRoomId) {
+            return;
+        }
 
         const token = localStorage.getItem('token');
+
+        //Variable para almacenar la instancia del socket
         let ws: WebSocket | null = null;
 
+        //Duncion para realizar una Peticion para obtener historial de mensajes
         const fetchHistoryAndConnect = async () => {
             try {
-                const response = await fetch(`${BACKEND_ROOMS_BASE_URL}/${currentRoomId}/messages?page=1&limit=20`, {
+                
+                const response = await fetch(`${BACKEND_ROOMS_BASE_URL}/${currentRoomId}/messages?page=1&limit=40`, {
                     method: "GET",
                     headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" }
                 });
@@ -263,21 +260,30 @@ export const Dashboard: React.FC = () => {
             }
 
             console.log(`[WS] Initializing connection to room node: ${currentRoomId}`);
+            
+            //Apertura del canal en tiempo real utilizando el protocolo ws://
             ws = new WebSocket(`${WS_BASE_URL}/${currentRoomId}`);
 
+            //Evento onopen. Se ejecuta cuando el backend acepta el saludo del websocket, cambia el estado visual a verde para indicar que se conecto
             ws.onopen = () => {
                 console.log("[WS] Secure socket tunnel established successfully.");
                 setWsConnected(true);
             };
 
+            // Evento on message, se ejecuta cada vez que el servidor envia un mensaje al canal
             ws.onmessage = (event) => {
                 try {
+                    //parsea lo recibido a MessagePayload
                     const incomingMessage: MessagePayload = JSON.parse(event.data);
+                    
+                    //actualizar mensage
                     setMessages((prev) => {
                         const exists = prev.some(m => m.id === incomingMessage.id);
+                        //Si el mensaje recibido ya existia, remplaza el mensaje viejo por el nuevo
                         if (exists) {
                             return prev.map(m => m.id === incomingMessage.id ? incomingMessage : m);
                         }
+                        //Si es un mensaje completamente nuevo, se concatena al final de la pantalla
                         return [...prev, incomingMessage];
                     });
                 } catch (err) {
@@ -285,12 +291,14 @@ export const Dashboard: React.FC = () => {
                 }
             };
 
+            //eventos que apagan el socket
             ws.onerror = () => setWsConnected(false);
             ws.onclose = () => setWsConnected(false);
         };
 
         fetchHistoryAndConnect();
-
+        
+        //funcion de limpiezaa, cierra el socket cuando se cambia la id
         return () => {
             if (ws) {
                 console.log(`[WS] Tearing down connection for node: ${currentRoomId}`);

@@ -19,14 +19,16 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-    if (!isOpen) return null;
+    if (!isOpen) {
+        return null;
+    }
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSubmitting(true);
         setErrorMsg(null);
 
-        // Validaciones previas antes de levantar el socket HTTP
+        // Validaciones 
         if (name.length < 1 || name.length > 20) {
             setErrorMsg("CRITICAL: Name signature must be between 1 and 20 characters.");
             setIsSubmitting(false);
@@ -142,7 +144,7 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
                             onClick={onClose}
                             className="px-3 py-1.5 bg-transparent border border-transparent hover:border-zinc-800 text-zinc-500 hover:text-zinc-300 text-xs rounded-lg transition-all"
                         >
-                            Abort
+                            Cancel
                         </button>
                         
                         <button
@@ -150,7 +152,7 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
                             disabled={isSubmitting}
                             className="px-4 py-1.5 bg-zinc-900 hover:bg-red-500/10 border border-zinc-800 hover:border-red-500/30 text-zinc-400 hover:text-red-500 text-xs font-bold uppercase tracking-wider rounded-lg transition-all disabled:opacity-40"
                         >
-                            {isSubmitting ? "Deploying..." : "Deploy Node"}
+                            {isSubmitting ? "Creating..." : "Create Room"}
                         </button>
                     </div>
 

@@ -8,7 +8,7 @@ interface ActiveRoomData {
     description: string;
     owner_id: string;
     created_at: string;
-    owner_username: string; // <-- Inyección del username real obtenida del room_service
+    owner_username: string; 
 }
 
 interface ChatHeaderProps {
@@ -30,16 +30,19 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({ room }) => {
     }
 
     const handleGoToDetails = () => {
+        if (room && room.id) {
+        // Asegúrate de que la estructura del string coincida con tu Route de App.tsx
         navigate(`/dashboard/rooms/${room.id}/details`);
+        } else {
+            console.error("No hay un nodo de sala activo para extraer el ID");
+        }
     };
 
     return (
-        /* CAMBIO CLAVE: Bajamos a z-0 para que al abrirse la Sidebar móvil (que tiene z-10), 
-          esta pase de forma implacable por encima del encabezado sin que se encimen los textos.
-        */
+        
         <div className="h-14 w-full border-b border-zinc-900 px-6 flex items-center justify-between flex-shrink-0 bg-zinc-950/20 z-0">
             
-            {/* SECCIÓN IZQUIERDA: METADATA COMPLETA DE LA SALA */}
+            {/* SECCION IZQUIERDA: METADATA COMPLETA DE LA SALA */}
             <div 
                 onClick={handleGoToDetails}
                 className="flex flex-col justify-center cursor-pointer group max-w-[75%] sm:max-w-[85%]"
@@ -53,7 +56,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({ room }) => {
                     </span>
                 </div>
                 
-                {/* Contenedor adaptativo en línea para la descripción y el operador creador */}
+                {/* Contenedor  para la descripcion y el operador creador */}
                 <div className="flex items-center gap-2 text-[11px] font-mono text-zinc-500 truncate tracking-tight mt-0.5">
                     {room.description && (
                         <span className="truncate">{room.description}</span>
@@ -65,7 +68,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({ room }) => {
                 </div>
             </div>
 
-            {/* SECCIÓN DERECHA: BOTÓN DE CONFIGURACIÓN */}
+            {/* SECCION DERECHA: BOTON DE CONFIGURACION */}
             <div>
                 <button 
                     onClick={handleGoToDetails}

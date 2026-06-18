@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, Query, Path, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import Optional, List
+from typing import Optional, List, Sequence, Dict, Any
 
-from app.rooms_service.schemas.rooms_schemas import RoomCreate, RoomResponse, JoinRoomResponse, LeaveRoomResponse
+from app.rooms_service.schemas.rooms_schemas import RoomCreate, RoomResponse, JoinRoomResponse, LeaveRoomResponse, ExtendedRoomResponse
 from app.auth_service.schemas.users_schemas import UserResponse
 from app.database.connection import get_db
 from app.auth_service.dependencies.auth_dependencies import get_current_user
@@ -17,7 +17,8 @@ from app.rooms_service.repository.rooms_repository import (
     create_new_room, 
     join_a_room,
     get_room_member,
-    leave_a_room_by_object
+    leave_a_room_by_object, 
+    get_room_by_id_extended
 )
 from app.message_service.repository.message_repository import get_messages_from_room, create_new_message
 from app.message_service.schemas.message_schemas import MessageResponse, MessageCreate, FileNestedResponse
@@ -30,8 +31,9 @@ router: APIRouter = APIRouter(
 )
 
 
-@router.get("/", response_model=List[RoomResponse])
+@router.get("/", response_model=List[ExtendedRoomResponse])
 def get_rooms(
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
     page: int = Query(default=1, ge=1),
     limit: int = Query(default=20, ge=1, le=20)
@@ -39,11 +41,11 @@ def get_rooms(
     """
     Endpoint para obtener todas las salas disponibles en la plataforma
     """
-    return get_all_rooms(db, page, limit)
     
 
+    return get_all_rooms(current_user, db, page, limit)
 
-@router.get("/me", response_model=List[RoomResponse])
+@router.get("/me", response_model=List[ExtendedRoomResponse])
 def get_rooms_by_user(
     db: Session = Depends(get_db),
     page: int = Query(default=1, ge=1),
@@ -59,16 +61,17 @@ def get_rooms_by_user(
     
 
 
-@router.get("/{room_id}", response_model=RoomResponse)
+@router.get("/{room_id}", response_model=ExtendedRoomResponse)
 def get_single_room(
     room_id: str,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
     
 ):
     """
     Endpoint para obtener una sala por su id
     """
-    room: Optional[Room] = get_room_by_id(db, room_id)
+    room: Optional[Dict[str, Any]] = get_room_by_id_extended(current_user, db, room_id)
     if room is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -191,6 +194,8 @@ async def leave_room(
             status_code=status.HTTP_404_NOT_FOUND, 
             detail="Room not found"
         )
+    
+    print("Se paso validacion de que existe la sala")
     
     # Validamos que el usuario aun este en la sala
     room_member: Optional[RoomMember] = get_room_member(current_user, room_id, db) 

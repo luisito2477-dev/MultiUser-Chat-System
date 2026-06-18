@@ -122,7 +122,7 @@ export const LoginPage: React.FC = () => {
                         disabled={loading}
                         className="w-full py-3.5 mt-2 bg-red-500 hover:bg-[#FF003C] text-white font-bold rounded-xl transition-all shadow-[0_0_15px_#FF1744] hover:shadow-[0_0_20px_#FF1744] active:scale-[0.98] text-sm tracking-wide uppercase font-mono disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        {loading ? 'Autenticando Nodo...' : 'Acceder'} 
+                        {loading ? 'Authenticating...' : 'Sign In'} 
                     </button>
                 </form>
 

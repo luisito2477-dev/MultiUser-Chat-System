@@ -54,8 +54,16 @@ class User(Base):
         cascade="all, delete-orphan" # Si se borra un usuario, se borran sus mensajes
     )
 
-    rooms: Mapped[List["Room"]] = relationship(
+    # Salas de las que es dueno
+    owned_rooms: Mapped[List["Room"]] = relationship(
         "Room", 
-        back_populates="user", 
+        back_populates="owner", 
         cascade="all, delete-orphan" # Si se borra un usuario, se borran sus mensajes
+    )
+
+    # Salas de las que es miembro
+    joined_rooms: Mapped[List["Room"]] = relationship(
+        "Room",
+        secondary="room_members",
+        back_populates="members"
     )

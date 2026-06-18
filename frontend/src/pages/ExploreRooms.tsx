@@ -20,12 +20,12 @@ export const ExploreRooms: React.FC = () => {
     const BACKEND_PROFILE_URL = "http://localhost:8000/auth/me";
     const BACKEND_ROOMS_BASE_URL = "http://localhost:8000/rooms/"
 
-    // ─── ESTADOS PROPIOS DE LA PÁGINA (YA NO VIENEN POR PROPS) ───
+    // ─── ESTADOS PROPIOS DE LA PAGINA
     const [username, setUsername] = useState<string>('OPERATOR');
-    const [wsConnected, setWsConnected] = useState<boolean>(true); // Monitoreo de red ficticio o global
+    const [wsConnected, setWsConnected] = useState<boolean>(true); 
     const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
     
-    // Estados de la paginación y catálogo
+    // Estados de la paginacion y catalogo
     const [rooms, setRooms] = useState<Room[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
@@ -34,7 +34,9 @@ export const ExploreRooms: React.FC = () => {
     
     const limit = 6;
 
-    // ─── AUTENTICACIÓN LOCAL
+    /**
+     * AUTENTICACION
+     */
     useEffect(() => {
             const fetchUserProfile = async () => {
                 const token = localStorage.getItem('token');
@@ -77,7 +79,11 @@ export const ExploreRooms: React.FC = () => {
             fetchUserProfile();
         }, [navigate]);
 
-    // ─── CONSULTA LOGÍSTICA DE SALAS ───
+
+
+    /**
+     * CONSULTA DE LAS SALAS
+     */
     const fetchRooms = async (page: number, query: string) => {
         setIsLoading(true);
         const token = localStorage.getItem('token');
@@ -95,26 +101,27 @@ export const ExploreRooms: React.FC = () => {
             );
 
             if (response.ok) {
-                // 1. Recibimos el array directo de objetos
+                // Recibimos el array directo de objetos
                 const rawRooms = await response.json(); 
                 
                 if (Array.isArray(rawRooms)) {
-                    // 2. Mapeamos los datos para inyectar valores por defecto temporalmente
+                    // Mapeamos los datos para inyectar valores por defecto temporalmente
                     // (ya que tu JSON actual no trae miembros ni contadores)
                     const formattedRooms: Room[] = rawRooms.map((room: any) => ({
                         id: room.id,
                         name: room.name,
                         description: room.description,
-                        max_users: room.max_users || 100, // Valor por defecto si es opcional
-                        current_users_count: room.current_users_count || 0, // Por defecto 0
-                        is_member: room.is_member || false // Por defecto falso hasta que el backend lo calcule
+                        max_users: room.max_users || 100, 
+                        current_users_count: room.current_users_count || 0, 
+                        is_member: room.is_member || false 
                     }));
 
                     setRooms(formattedRooms);
 
-                    //. Calculamos la paginación dinámicamente con la longitud del array
-                    const calculatedPages = Math.ceil(formattedRooms.length / limit);
-                    setTotalPages(calculatedPages > 0 ? calculatedPages : 1);
+                    //Calculamos la paginación dinAmicamente con la longitud del array
+                    //const calculatedPages = Math.ceil(formattedRooms.length / limit);
+                    //setTotalPages(calculatedPages > 0 ? calculatedPages : 1);
+                    setTotalPages(formattedRooms.length === limit ? currentPage + 1 : currentPage);
                 } else {
                     console.error("The backend response signature is not an array cluster.");
                 }
@@ -130,7 +137,10 @@ export const ExploreRooms: React.FC = () => {
         fetchRooms(currentPage, searchTerm);
     }, [currentPage, searchTerm]);
 
-    // ─── ACCIÓN: VINCULAR NUEVO NODO (UNIRSE) ───
+    /**
+     * 
+     * Funcion para unirse a las salas
+     */
     const handleJoinRoom = async (roomId: string) => {
         const token = localStorage.getItem('token');
         try {
@@ -156,7 +166,9 @@ export const ExploreRooms: React.FC = () => {
         }
     };
 
-    // ─── ACCIÓN: DESCONECTAR / LOGOUT ───
+    /*
+    * LOGOUT
+    */
     const handleLogout = () => {
         localStorage.removeItem('token');
         navigate('/login');
@@ -184,24 +196,15 @@ export const ExploreRooms: React.FC = () => {
                             <div className="flex items-center gap-2">
                                 <span className="h-2 w-2 bg-red-500 animate-ping rounded-full"></span>
                                 <h1 className="text-xl font-mono font-bold tracking-tight text-zinc-100">
-                                    AVAILABLE_CHANNELS_CLUSTER
+                                    AVAILABLE_ROOMS_CLUSTER
                                 </h1>
                             </div>
                             <p className="text-xs text-zinc-500 font-mono mt-1">
-                                Scan and hook into open network terminals across the system.
+                                Scan and hook into open network rooms across the system.
                             </p>
                         </div>
 
-                        {/* Buscador */}
-                        <div className="relative">
-                            <input 
-                                type="text"
-                                placeholder="Search channel signature..."
-                                value={searchTerm}
-                                onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-                                className="w-full md:w-64 bg-zinc-900/50 border border-zinc-800 focus:border-red-500/50 text-zinc-200 placeholder-zinc-600 px-4 py-1.5 rounded-lg text-xs font-mono outline-none transition-all"
-                            />
-                        </div>
+                       
                     </div>
 
                     {/* Render de Cards */}
@@ -253,7 +256,7 @@ export const ExploreRooms: React.FC = () => {
                     )}
                 </div>
 
-                {/* CONTROLES DE PAGINACIÓN */}
+                {/* CONTROLES DE PAGINACION */}
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-zinc-900 pt-5 mt-6">
                     {/* Botón para volver al Dashboard principal de la App usando React Router */}
                     <button
